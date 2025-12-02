@@ -6,10 +6,14 @@ require('dotenv').config();
 const db = require('./config/db');
 const Game = require('./models/Game');
 const Tag = require('./models/Tag');
+const User = require('./models/User');
+const Review = require('./models/Review');
 
 // 路由
 const gameRoutes = require('./routes/games');
 const tagRoutes = require('./routes/tags');
+const userRoutes = require('./routes/users');
+const reviewRoutes = require('./routes/reviews');
 
 // 创建Express应用
 const app = express();
@@ -21,9 +25,11 @@ app.use(express.json());
 // 初始化数据库表
 async function initializeDatabase() {
   try {
+    await User.createTable(db);
     await Game.createTable(db);
     await Tag.createTable(db);
     await Tag.createGameTagsTable(db);
+    await Review.createTable(db);
     console.log('数据库表初始化成功');
   } catch (error) {
     console.error('数据库表初始化失败:', error);
@@ -33,6 +39,8 @@ async function initializeDatabase() {
 // 路由
 app.use('/api', gameRoutes);
 app.use('/api', tagRoutes);
+app.use('/api', userRoutes);
+app.use('/api', reviewRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: '欢迎来到GalHub游戏管理API' });

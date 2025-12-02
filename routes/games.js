@@ -35,7 +35,7 @@ router.get('/games', async (req, res) => {
 // 添加新游戏
 router.post('/games', async (req, res) => {
   try {
-    const { title, alias, link, coverImage, description, tags } = req.body;
+    const { title, alias, link, coverImage, description, rating, tags } = req.body;
     
     // 验证必要字段
     if (!title) {
@@ -46,7 +46,7 @@ router.post('/games', async (req, res) => {
     }
     
     // 创建游戏
-    const [result] = await Game.create(db, { title, alias, link, coverImage, description });
+    const [result] = await Game.create(db, { title, alias, link, coverImage, description, rating });
     const gameId = result.insertId;
     
     // 如果提供了标签，则关联它们

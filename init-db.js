@@ -6,10 +6,16 @@
 const db = require('./config/db');
 const Game = require('./models/Game');
 const Tag = require('./models/Tag');
+const User = require('./models/User');
+const Review = require('./models/Review');
 
 async function initDatabase() {
   try {
     console.log('开始初始化数据库...');
+    
+    // 创建用户表
+    await User.createTable(db);
+    console.log('✓ 用户表创建成功');
     
     // 创建游戏表
     await Game.createTable(db);
@@ -22,6 +28,10 @@ async function initDatabase() {
     // 创建游戏标签关联表
     await Tag.createGameTagsTable(db);
     console.log('✓ 游戏标签关联表创建成功');
+    
+    // 创建评论表
+    await Review.createTable(db);
+    console.log('✓ 评论表创建成功');
     
     console.log('数据库初始化完成！');
   } catch (error) {

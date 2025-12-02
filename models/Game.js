@@ -1,11 +1,12 @@
 class Game {
-  constructor(id, title, alias, link, coverImage, description) {
+  constructor(id, title, alias, link, coverImage, description, rating) {
     this.id = id;
     this.title = title;
     this.alias = alias;
     this.link = link;
     this.coverImage = coverImage;
     this.description = description;
+    this.rating = rating;
   }
 
   // 创建游戏表
@@ -18,6 +19,7 @@ class Game {
         link TEXT,
         cover_image VARCHAR(255),
         description TEXT,
+        rating DECIMAL(3,2) DEFAULT 0.00,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
@@ -27,12 +29,12 @@ class Game {
 
   // 插入新游戏
   static create(db, gameData) {
-    const { title, alias, link, coverImage, description } = gameData;
+    const { title, alias, link, coverImage, description, rating } = gameData;
     const sql = `
-      INSERT INTO games (title, alias, link, cover_image, description)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO games (title, alias, link, cover_image, description, rating)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
-    return db.execute(sql, [title, alias, link, coverImage, description]);
+    return db.execute(sql, [title, alias, link, coverImage, description, rating || 0.00]);
   }
 
   // 获取所有游戏

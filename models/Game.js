@@ -43,6 +43,18 @@ class Game {
     return db.execute(sql);
   }
 
+  // 获取最新游戏列表（默认限制10个）
+  static findLatest(db, limit = 10) {
+    const sql = 'SELECT * FROM games ORDER BY created_at DESC LIMIT ?';
+    return db.execute(sql, [limit]);
+  }
+
+  // 获取热门游戏列表（按评分降序排列，默认限制10个）
+  static findPopular(db, limit = 10) {
+    const sql = 'SELECT * FROM games ORDER BY rating DESC, created_at DESC LIMIT ?';
+    return db.execute(sql, [limit]);
+  }
+
   // 根据ID查找游戏
   static findById(db, id) {
     const sql = 'SELECT * FROM games WHERE id = ?';

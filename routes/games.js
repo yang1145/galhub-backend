@@ -5,6 +5,62 @@ const db = require('../config/db');
 
 const router = express.Router();
 
+// 获取最新游戏列表
+router.get('/games/latest', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const [games] = await Game.findLatest(db, Math.min(limit, 50)); // 限制最多50个
+    
+    // 为每个游戏添加标签信息
+    const gamesWithTags = await Promise.all(games.map(async (game) => {
+      const [tags] = await Tag.findByGameId(db, game.id);
+      return {
+        ...game,
+        tags
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: gamesWithTags
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: '获取最新游戏列表失败'
+    });
+  }
+});
+
+// 获取热门游戏列表
+router.get('/games/popular', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const [games] = await Game.findPopular(db, Math.min(limit, 50)); // 限制最多50个
+    
+    // 为每个游戏添加标签信息
+    const gamesWithTags = await Promise.all(games.map(async (game) => {
+      const [tags] = await Tag.findByGameId(db, game.id);
+      return {
+        ...game,
+        tags
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: gamesWithTags
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: '获取热门游戏列表失败'
+    });
+  }
+});
+
 // 获取游戏列表
 router.get('/games', async (req, res) => {
   try {

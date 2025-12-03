@@ -141,6 +141,84 @@ Authorization: Bearer <your_token>
 
 ## 游戏接口
 
+### 获取最新游戏列表
+
+**接口地址**: `GET /games/latest`
+
+**查询参数**:
+
+| 参数名 | 类型 | 必需 | 默认值 | 说明 |
+|--------|------|------|--------|------|
+| limit | integer | 否 | 10 | 返回的游戏数量，最大50 |
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "塞尔达传说：旷野之息",
+      "alias": "Breath of the Wild",
+      "link": "https://www.nintendo.co.jp/switch/azge/index.html",
+      "cover_image": "https://example.com/zelda-cover.jpg",
+      "description": "《塞尔达传说：旷野之息》是任天堂企划制作本部开发并发行的动作冒险游戏...",
+      "rating": "9.50",
+      "created_at": "2023-01-01T00:00:00.000Z",
+      "updated_at": "2023-01-01T00:00:00.000Z",
+      "tags": [
+        {
+          "id": 1,
+          "name": "动作",
+          "created_at": "2023-01-01T00:00:00.000Z",
+          "updated_at": "2023-01-01T00:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 获取热门游戏列表
+
+**接口地址**: `GET /games/popular`
+
+**查询参数**:
+
+| 参数名 | 类型 | 必需 | 默认值 | 说明 |
+|--------|------|------|--------|------|
+| limit | integer | 否 | 10 | 返回的游戏数量，最大50 |
+
+**响应示例**:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "塞尔达传说：旷野之息",
+      "alias": "Breath of the Wild",
+      "link": "https://www.nintendo.co.jp/switch/azge/index.html",
+      "cover_image": "https://example.com/zelda-cover.jpg",
+      "description": "《塞尔达传说：旷野之息》是任天堂企划制作本部开发并发行的动作冒险游戏...",
+      "rating": "9.50",
+      "created_at": "2023-01-01T00:00:00.000Z",
+      "updated_at": "2023-01-01T00:00:00.000Z",
+      "tags": [
+        {
+          "id": 1,
+          "name": "动作",
+          "created_at": "2023-01-01T00:00:00.000Z",
+          "updated_at": "2023-01-01T00:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}
+```
+
 ### 获取游戏列表
 
 **接口地址**: `GET /games`

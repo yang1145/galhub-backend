@@ -1,13 +1,14 @@
 const { Pool } = require('pg');
+const config = require('./index');
 
 // 创建数据库连接池
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'galhub',
-  port: process.env.DB_PORT || 5432,
-  max: 10
+  host: config.database.host,
+  user: config.database.user,
+  password: config.database.password,
+  database: config.database.database,
+  port: config.database.port,
+  max: config.database.max
 });
 
 // 封装查询方法，使返回格式与mysql2兼容

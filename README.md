@@ -7,7 +7,7 @@
 - [功能特性](#功能特性)
 - [技术栈](#技术栈)
 - [安装指南](#安装指南)
-- [环境变量配置](#环境变量配置)
+- [配置文件说明](#配置文件说明)
 - [API 接口文档](#api-接口文档)
 - [数据库结构](#数据库结构)
 - [开发命令](#开发命令)
@@ -52,10 +52,31 @@
    npm install
    ```
 
-4. 配置环境变量：
-   复制 `.env.example` 为 `.env` 并修改配置：
-   ```bash
-   cp .env.example .env
+4. 配置应用设置：
+   编辑 `config/index.js` 文件，根据你的环境修改配置：
+   ```javascript
+   const config = {
+     // 数据库配置
+     database: {
+       host: 'localhost',
+       user: 'postgres',
+       password: '',
+       database: 'galhub',
+       port: 5432,
+       max: 10
+     },
+     
+     // 服务器配置
+     server: {
+       port: 3000,
+       corsOrigin: ['http://localhost:3000']
+     },
+     
+     // JWT配置
+     jwt: {
+       secret: 'your-jwt-secret-key-here' // 在生产环境中应该使用更安全的密钥
+     }
+   };
    ```
 
 5. 创建 PostgreSQL 数据库：
@@ -78,19 +99,35 @@
    npm run dev
    ```
 
-## 环境变量配置
+## 配置文件说明
 
-| 变量名 | 描述 | 默认值 | 必需 |
+项目使用 `config/index.js` 文件来管理所有配置，不再依赖环境变量。配置文件包含以下部分：
+
+### 数据库配置 (`database`)
+| 配置项 | 描述 | 默认值 | 必需 |
 |--------|------|--------|------|
-| PORT | 服务器端口 | 3000 | 否 |
-| NODE_ENV | 运行环境 | development | 否 |
-| DB_HOST | 数据库主机 | localhost | 否 |
-| DB_PORT | 数据库端口 | 5432 | 否 |
-| DB_USER | 数据库用户名 | postgres | 否 |
-| DB_PASSWORD | 数据库密码 | - | 是 |
-| DB_NAME | 数据库名称 | galhub | 否 |
-| JWT_SECRET | JWT签名密钥 | - | 生产环境必需 |
-| CORS_ORIGIN | 允许的跨域来源 | http://localhost:3000 | 否 |
+| host | 数据库主机 | localhost | 否 |
+| port | 数据库端口 | 5432 | 否 |
+| user | 数据库用户名 | postgres | 否 |
+| password | 数据库密码 | '' | 是（如果数据库需要密码） |
+| database | 数据库名称 | galhub | 否 |
+| max | 最大连接池大小 | 10 | 否 |
+
+### 服务器配置 (`server`)
+| 配置项 | 描述 | 默认值 | 必需 |
+|--------|------|--------|------|
+| port | 服务器端口 | 3000 | 否 |
+| corsOrigin | 允许的跨域来源 | ['http://localhost:3000'] | 否 |
+
+### JWT配置 (`jwt`)
+| 配置项 | 描述 | 默认值 | 必需 |
+|--------|------|--------|------|
+| secret | JWT签名密钥 | 'your-jwt-secret-key-here' | 生产环境必需 |
+
+**重要提示：**
+- 在生产环境中，务必修改 `jwt.secret` 为强随机密钥
+- 数据库密码应根据实际数据库设置进行配置
+- CORS来源应根据前端部署地址进行调整
 
 ## API 接口文档
 

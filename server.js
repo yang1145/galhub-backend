@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+const config = require('./config/index');
 
 // 数据库和模型
 const db = require('./config/db');
@@ -25,7 +25,7 @@ app.use(helmet());
 
 // CORS配置
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['http://localhost:3000'],
+  origin: config.server.corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -132,7 +132,7 @@ app.use((err, req, res, next) => {
 
 // 初始化数据库并启动服务器
 initializeDatabase().then(() => {
-  const PORT = process.env.PORT || 3000;
+  const PORT = config.server.port;
   app.listen(PORT, () => {
     console.log(`服务器运行在端口 ${PORT}`);
   });

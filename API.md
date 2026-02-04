@@ -1,66 +1,63 @@
-# GalHub API Documentation
+# GalHub 游戏管理API文档
 
 ## 概述
+GalHub Backend 是一个基于 Node.js 和 PostgreSQL 构建的游戏管理系统后端 API，提供用户认证、游戏管理、标签分类、评论评分等核心功能。
 
-GalHub 是一个游戏信息管理平台，提供游戏信息、标签、用户评论等相关功能。本文档详细说明了所有可用的 API 接口。
+- **基础URL**: `http://localhost:3000/api`
+- **认证方式**: JWT Bearer Token
+- **请求格式**: JSON
+- **响应格式**: JSON
+- **速率限制**: 
+  - 全局：每个IP 15分钟最多100个请求
+  - 认证相关：每个IP 15分钟最多10次尝试
 
-## 基础URL
+## 响应格式
+所有API响应都遵循统一的JSON格式：
 
+```json
+{
+  "success": true|false,
+  "message": "操作描述信息",
+  "data": {} // 返回的数据
+}
 ```
-http://localhost:3000/api
+
+错误响应示例：
+```json
+{
+  "success": false,
+  "message": "错误描述"
+}
 ```
-
-> 注：端口号可能根据环境配置有所不同
-
-## 状态码
-
-| 状态码 | 说明 |
-|--------|------|
-| 200 | 请求成功 |
-| 201 | 创建成功 |
-| 400 | 请求参数错误 |
-| 401 | 未授权访问 |
-| 404 | 资源未找到 |
-| 500 | 服务器内部错误 |
 
 ## 认证
-
-大部分写操作需要用户认证，通过 JWT Token 实现。获取 Token 的方法请参考[用户认证](#用户认证接口)部分。
-
-在需要认证的请求中，在请求头中添加：
-
+需要认证的API必须在请求头中包含JWT令牌：
 ```
-Authorization: Bearer <your_token>
+Authorization: Bearer <your-jwt-token>
 ```
 
 ---
 
-## 用户认证接口
+## 用户相关API
 
-### 用户注册
+### 1. 用户注册
+**POST** `/api/register`
 
-**接口地址**: `POST /register`
-
-**请求参数**:
-
-| 参数名 | 类型 | 必需 | 说明 |
-|--------|------|------|------|
-| username | string | 是 | 用户名 |
-| email | string | 是 | 邮箱地址 |
-| password | string | 是 | 密码 |
-
-**请求示例**:
-
+**请求体**:
 ```json
 {
-  "username": "testuser",
-  "email": "test@example.com",
-  "password": "password123"
+  "username": "用户名",
+  "email": "邮箱地址",
+  "password": "密码"
 }
 ```
 
-**响应示例**:
+**验证规则**:
+- 用户名：3-50字符，只能包含字母、数字、下划线和中文
+- 邮箱：有效的邮箱格式，不超过100字符
+- 密码：至少8字符，必须包含字母和数字，不超过128字符
 
+**成功响应**:
 ```json
 {
   "success": true,
@@ -68,36 +65,26 @@ Authorization: Bearer <your_token>
   "data": {
     "user": {
       "id": 1,
-      "username": "testuser",
-      "email": "test@example.com"
+      "username": "用户名",
+      "email": "邮箱地址"
     },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "token": "jwt-token"
   }
 }
 ```
 
-### 用户登录
+### 2. 用户登录
+**POST** `/api/login`
 
-**接口地址**: `POST /login`
-
-**请求参数**:
-
-| 参数名 | 类型 | 必需 | 说明 |
-|--------|------|------|------|
-| username | string | 是 | 用户名 |
-| password | string | 是 | 密码 |
-
-**请求示例**:
-
+**请求体**:
 ```json
 {
-  "username": "testuser",
-  "password": "password123"
+  "username": "用户名",
+  "password": "密码"
 }
 ```
 
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
@@ -105,33 +92,26 @@ Authorization: Bearer <your_token>
   "data": {
     "user": {
       "id": 1,
-      "username": "testuser",
-      "email": "test@example.com"
+      "username": "用户名",
+      "email": "邮箱地址"
     },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "token": "jwt-token"
   }
 }
 ```
 
-### 获取当前用户信息
+### 3. 获取当前用户信息
+**GET** `/api/me` (需要认证)
 
-**接口地址**: `GET /me`
-
-**请求头**:
-```
-Authorization: Bearer <your_token>
-```
-
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "data": {
     "user": {
       "id": 1,
-      "username": "testuser",
-      "email": "test@example.com"
+      "username": "用户名",
+      "email": "邮箱地址"
     }
   }
 }
@@ -139,176 +119,131 @@ Authorization: Bearer <your_token>
 
 ---
 
-## 游戏接口
+## 游戏相关API
 
-### 获取最新游戏列表
-
-**接口地址**: `GET /games/latest`
-
-**查询参数**:
-
-| 参数名 | 类型 | 必需 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| limit | integer | 否 | 10 | 返回的游戏数量，最大50 |
-
-**响应示例**:
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "title": "塞尔达传说：旷野之息",
-      "alias": "Breath of the Wild",
-      "link": "https://www.nintendo.co.jp/switch/azge/index.html",
-      "cover_image": "https://example.com/zelda-cover.jpg",
-      "description": "《塞尔达传说：旷野之息》是任天堂企划制作本部开发并发行的动作冒险游戏...",
-      "rating": "9.50",
-      "created_at": "2023-01-01T00:00:00.000Z",
-      "updated_at": "2023-01-01T00:00:00.000Z",
-      "tags": [
-        {
-          "id": 1,
-          "name": "动作",
-          "created_at": "2023-01-01T00:00:00.000Z",
-          "updated_at": "2023-01-01T00:00:00.000Z"
-        }
-      ]
-    }
-  ]
-}
-```
-
-### 获取热门游戏列表
-
-**接口地址**: `GET /games/popular`
+### 1. 获取最新游戏列表
+**GET** `/api/games/latest`
 
 **查询参数**:
+- `limit`: 数量限制 (1-50，默认10)
 
-| 参数名 | 类型 | 必需 | 默认值 | 说明 |
-|--------|------|------|--------|------|
-| limit | integer | 否 | 10 | 返回的游戏数量，最大50 |
-
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "data": [
     {
       "id": 1,
-      "title": "塞尔达传说：旷野之息",
-      "alias": "Breath of the Wild",
-      "link": "https://www.nintendo.co.jp/switch/azge/index.html",
-      "cover_image": "https://example.com/zelda-cover.jpg",
-      "description": "《塞尔达传说：旷野之息》是任天堂企划制作本部开发并发行的动作冒险游戏...",
-      "rating": "9.50",
-      "created_at": "2023-01-01T00:00:00.000Z",
-      "updated_at": "2023-01-01T00:00:00.000Z",
+      "title": "游戏标题",
+      "alias": "别名",
+      "link": "链接",
+      "coverImage": "封面图片URL",
+      "description": "描述",
+      "rating": 8.5,
+      "createdAt": "创建时间",
       "tags": [
-        {
-          "id": 1,
-          "name": "动作",
-          "created_at": "2023-01-01T00:00:00.000Z",
-          "updated_at": "2023-01-01T00:00:00.000Z"
-        }
+        {"id": 1, "name": "标签1"},
+        {"id": 2, "name": "标签2"}
       ]
     }
   ]
 }
 ```
 
-### 获取游戏列表
+### 2. 获取热门游戏列表
+**GET** `/api/games/popular`
 
-**接口地址**: `GET /games`
+**查询参数**:
+- `limit`: 数量限制 (1-50，默认10)
 
-**响应示例**:
+**响应格式**: 同最新游戏列表
 
+### 3. 获取游戏列表（分页）
+**GET** `/api/games`
+
+**查询参数**:
+- `page`: 页码 (默认1)
+- `limit`: 每页数量 (1-100，默认20)
+
+**成功响应**:
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "id": 1,
-      "title": "塞尔达传说：旷野之息",
-      "alias": "Breath of the Wild",
-      "link": "https://www.nintendo.co.jp/switch/azge/index.html",
-      "cover_image": "https://example.com/zelda-cover.jpg",
-      "description": "《塞尔达传说：旷野之息》是任天堂企划制作本部开发并发行的动作冒险游戏...",
-      "rating": "9.50",
-      "created_at": "2023-01-01T00:00:00.000Z",
-      "updated_at": "2023-01-01T00:00:00.000Z",
-      "tags": [
-        {
-          "id": 1,
-          "name": "动作",
-          "created_at": "2023-01-01T00:00:00.000Z",
-          "updated_at": "2023-01-01T00:00:00.000Z"
-        }
-      ]
-    }
-  ]
+  "data": [...], // 游戏数组
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
 }
 ```
 
-### 创建新游戏
+### 4. 获取单个游戏详情
+**GET** `/api/games/:id`
 
-**接口地址**: `POST /games`
+**路径参数**:
+- `id`: 游戏ID
 
-**请求头**:
-```
-Authorization: Bearer <your_token>
-```
-
-**请求参数**:
-
-| 参数名 | 类型 | 必需 | 说明 |
-|--------|------|------|------|
-| title | string | 是 | 游戏标题 |
-| alias | string | 否 | 游戏别名 |
-| link | string | 否 | 游戏链接 |
-| coverImage | string | 否 | 游戏封面图片链接 |
-| description | string | 否 | 游戏简介 |
-| rating | number | 否 | 游戏评分 |
-| tags | array | 否 | 标签数组 |
-
-**请求示例**:
-
-```json
-{
-  "title": "新游戏",
-  "alias": "New Game",
-  "link": "https://example.com/new-game",
-  "coverImage": "https://example.com/new-game-cover.jpg",
-  "description": "这是一个新游戏的介绍",
-  "rating": 8.5,
-  "tags": ["动作", "冒险"]
-}
-```
-
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "data": {
-    "id": 2,
-    "title": "新游戏",
-    "alias": "New Game",
-    "link": "https://example.com/new-game",
-    "cover_image": "https://example.com/new-game-cover.jpg",
-    "description": "这是一个新游戏的介绍",
-    "rating": "8.50",
-    "created_at": "2023-01-01T00:00:00.000Z",
-    "updated_at": "2023-01-01T00:00:00.000Z",
+    "id": 1,
+    "title": "游戏标题",
+    "alias": "别名",
+    "link": "链接",
+    "coverImage": "封面图片URL",
+    "description": "描述",
+    "rating": 8.5,
+    "createdAt": "创建时间",
     "tags": [
-      {
-        "id": 1,
-        "name": "动作",
-        "created_at": "2023-01-01T00:00:00.000Z",
-        "updated_at": "2023-01-01T00:00:00.000Z"
-      }
+      {"id": 1, "name": "标签1"},
+      {"id": 2, "name": "标签2"}
+    ]
+  }
+}
+```
+
+### 5. 添加新游戏
+**POST** `/api/games` (需要认证)
+
+**请求体**:
+```json
+{
+  "title": "游戏标题",
+  "alias": "别名",
+  "link": "游戏链接",
+  "coverImage": "封面图片URL",
+  "description": "游戏描述",
+  "rating": 8.5,
+  "tags": ["标签1", "标签2"]
+}
+```
+
+**验证规则**:
+- 标题：1-255字符（必需）
+- 评分：0-10之间
+- 链接：有效的URL格式
+- 标签：最多20个，每个不超过100字符
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "游戏标题",
+    "alias": "别名",
+    "link": "链接",
+    "coverImage": "封面图片URL",
+    "description": "描述",
+    "rating": 8.5,
+    "createdAt": "创建时间",
+    "tags": [
+      {"id": 1, "name": "标签1"},
+      {"id": 2, "name": "标签2"}
     ]
   }
 }
@@ -316,252 +251,188 @@ Authorization: Bearer <your_token>
 
 ---
 
-## 标签接口
+## 标签相关API
 
-### 获取标签列表
+### 1. 获取标签列表
+**GET** `/api/tags`
 
-**接口地址**: `GET /tags`
-
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "data": [
-    {
-      "id": 1,
-      "name": "动作",
-      "created_at": "2023-01-01T00:00:00.000Z",
-      "updated_at": "2023-01-01T00:00:00.000Z"
-    },
-    {
-      "id": 2,
-      "name": "冒险",
-      "created_at": "2023-01-01T00:00:00.000Z",
-      "updated_at": "2023-01-01T00:00:00.000Z"
-    }
+    {"id": 1, "name": "标签1"},
+    {"id": 2, "name": "标签2"}
   ]
 }
 ```
 
-### 创建新标签
+### 2. 添加新标签
+**POST** `/api/tags`
 
-**接口地址**: `POST /tags`
-
-**请求头**:
-```
-Authorization: Bearer <your_token>
-```
-
-**请求参数**:
-
-| 参数名 | 类型 | 必需 | 说明 |
-|--------|------|------|------|
-| name | string | 是 | 标签名称 |
-
-**请求示例**:
-
+**请求体**:
 ```json
 {
-  "name": "策略"
+  "name": "标签名称"
 }
 ```
 
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "data": {
-    "id": 3,
-    "name": "策略",
-    "created_at": "2023-01-01T00:00:00.000Z",
-    "updated_at": "2023-01-01T00:00:00.000Z"
+    "id": 1,
+    "name": "标签名称"
   }
 }
 ```
 
 ---
 
-## 评论接口
+## 评论相关API
 
-### 创建评论
+### 1. 创建评论
+**POST** `/api/reviews` (需要认证)
 
-**接口地址**: `POST /reviews`
-
-**请求头**:
-```
-Authorization: Bearer <your_token>
-```
-
-**请求参数**:
-
-| 参数名 | 类型 | 必需 | 说明 |
-|--------|------|------|------|
-| gameId | integer | 是 | 游戏ID |
-| rating | integer | 是 | 评分 (1-5) |
-| comment | string | 否 | 评论内容 |
-
-**请求示例**:
-
+**请求体**:
 ```json
 {
   "gameId": 1,
-  "rating": 5,
-  "comment": "这个游戏真的很棒！"
+  "rating": 4,
+  "comment": "评论内容"
 }
 ```
 
-**响应示例**:
+**验证规则**:
+- gameId: 有效的游戏ID
+- rating: 1-5之间的整数
+- comment: 不超过2000字符
+- 每个用户对同一游戏只能评论一次
 
+**成功响应**:
 ```json
 {
   "success": true,
   "message": "评论创建成功",
   "data": {
     "id": 1,
-    "user_id": 1,
-    "game_id": 1,
-    "rating": 5,
-    "comment": "这个游戏真的很棒！",
-    "created_at": "2023-01-01T00:00:00.000Z",
-    "updated_at": "2023-01-01T00:00:00.000Z",
-    "username": "testuser"
+    "userId": 1,
+    "gameId": 1,
+    "rating": 4,
+    "comment": "评论内容",
+    "createdAt": "创建时间"
   }
 }
 ```
 
-### 获取特定游戏的所有评论
-
-**接口地址**: `GET /reviews/game/:gameId`
+### 2. 获取游戏的所有评论
+**GET** `/api/reviews/game/:gameId`
 
 **路径参数**:
+- `gameId`: 游戏ID
 
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| gameId | integer | 游戏ID |
-
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "data": [
     {
       "id": 1,
-      "user_id": 1,
-      "game_id": 1,
-      "rating": 5,
-      "comment": "这个游戏真的很棒！",
-      "created_at": "2023-01-01T00:00:00.000Z",
-      "updated_at": "2023-01-01T00:00:00.000Z",
-      "username": "testuser"
+      "userId": 1,
+      "gameId": 1,
+      "rating": 4,
+      "comment": "评论内容",
+      "createdAt": "创建时间"
     }
   ]
 }
 ```
 
-### 获取特定用户的所有评论
-
-**接口地址**: `GET /reviews/user/:userId`
+### 3. 获取用户的所有评论
+**GET** `/api/reviews/user/:userId`
 
 **路径参数**:
+- `userId`: 用户ID
 
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| userId | integer | 用户ID |
+**成功响应**: 同游戏评论列表
 
-**响应示例**:
+### 4. 更新评论
+**PUT** `/api/reviews/:id` (需要认证)
 
+**路径参数**:
+- `id`: 评论ID
+
+**请求体**:
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "user_id": 1,
-      "game_id": 1,
-      "rating": 5,
-      "comment": "这个游戏真的很棒！",
-      "created_at": "2023-01-01T00:00:00.000Z",
-      "updated_at": "2023-01-01T00:00:00.000Z",
-      "game_title": "塞尔达传说：旷野之息"
-    }
-  ]
+  "rating": 5,
+  "comment": "更新后的评论内容"
 }
 ```
 
-### 更新评论
+**验证规则**:
+- 只能更新自己的评论
+- rating: 1-5之间的整数（可选）
+- comment: 不超过2000字符（可选）
 
-**接口地址**: `PUT /reviews/:id`
-
-**请求头**:
-```
-Authorization: Bearer <your_token>
-```
-
-**路径参数**:
-
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| id | integer | 评论ID |
-
-**请求参数**:
-
-| 参数名 | 类型 | 必需 | 说明 |
-|--------|------|------|------|
-| rating | integer | 否 | 评分 (1-5) |
-| comment | string | 否 | 评论内容 |
-
-**请求示例**:
-
-```json
-{
-  "rating": 4,
-  "comment": "重新评价后，我觉得这个游戏还不错。"
-}
-```
-
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "message": "评论更新成功",
   "data": {
     "id": 1,
-    "user_id": 1,
-    "game_id": 1,
-    "rating": 4,
-    "comment": "重新评价后，我觉得这个游戏还不错。",
-    "created_at": "2023-01-01T00:00:00.000Z",
-    "updated_at": "2023-01-01T00:00:00.000Z",
-    "username": "testuser",
-    "game_title": "塞尔达传说：旷野之息"
+    "userId": 1,
+    "gameId": 1,
+    "rating": 5,
+    "comment": "更新后的评论内容",
+    "createdAt": "创建时间"
   }
 }
 ```
 
-### 删除评论
-
-**接口地址**: `DELETE /reviews/:id`
-
-**请求头**:
-```
-Authorization: Bearer <your_token>
-```
+### 5. 删除评论
+**DELETE** `/api/reviews/:id` (需要认证)
 
 **路径参数**:
+- `id`: 评论ID
 
-| 参数名 | 类型 | 说明 |
-|--------|------|------|
-| id | integer | 评论ID |
-
-**响应示例**:
-
+**成功响应**:
 ```json
 {
   "success": true,
   "message": "评论删除成功"
 }
 ```
+
+---
+
+## 错误状态码
+
+- **400**: 请求参数错误或验证失败
+- **401**: 未认证或认证失败
+- **404**: 资源未找到
+- **429**: 请求过于频繁（速率限制）
+- **500**: 服务器内部错误
+
+## 安全特性
+
+1. **输入验证**: 所有用户输入都经过严格验证
+2. **密码加密**: 使用bcryptjs加密存储密码
+3. **JWT认证**: 无状态认证，令牌有效期24小时
+4. **速率限制**: 防止暴力破解和DDoS攻击
+5. **CORS控制**: 限制跨域请求来源
+6. **Helmet中间件**: HTTP头部安全加固
+7. **SQL注入防护**: 使用参数化查询
+
+## 数据库索引优化
+
+系统自动创建以下索引以提升查询性能：
+- `idx_games_created_at`: 按创建时间排序
+- `idx_games_rating`: 按评分排序  
+- `idx_reviews_game_id`: 按游戏ID查询评论
+- `idx_reviews_user_id`: 按用户ID查询评论
+- `idx_users_username`: 按用户名查询
+- `idx_users_email`: 按邮箱查询
+- `idx_game_tags_game_id` 和 `idx_game_tags_tag_id`: 游戏标签关联查询

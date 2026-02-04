@@ -1,14 +1,12 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const config = require('../config/index');
 
-// 获取JWT密钥（生产环境必须设置环境变量）
+// 获取JWT密钥
 const getJwtSecret = () => {
-  const secret = process.env.JWT_SECRET;
+  const secret = config.jwt.secret;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('生产环境必须设置JWT_SECRET环境变量');
-    }
-    console.warn('警告: 未设置JWT_SECRET，使用开发环境默认密钥（不要在生产环境使用）');
+    console.warn('警告: JWT_SECRET未在配置文件中设置，请确保在生产环境中设置安全的密钥');
     return 'dev_secret_key_do_not_use_in_production';
   }
   return secret;

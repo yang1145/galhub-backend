@@ -1,26 +1,83 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const validator = require('validator');
 const db = require('../config/db');
 const User = require('../models/User');
-const { generateToken } = require('../middleware/auth');
+const { generateToken, authenticate } = require('../middleware/auth');
 
 const router = express.Router();
+
+// 输入验证辅助函数
+const validateUsername = (username) => {
+  if (!username || typeof username !== 'string') {
+    return '用户名是必需的';
+  }
+  const trimmed = username.trim();
+  if (trimmed.length < 3 || trimmed.length > 50) {
+    return '用户名长度必须在3-50字符之间';
+  }
+  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(trimmed)) {
+    return '用户名只能包含字母、数字、下划线和中文';
+  }
+  return null;
+};
+
+const validateEmail = (email) => {
+  if (!email || typeof email !== 'string') {
+    return '邮箱是必需的';
+  }
+  if (!validator.isEmail(email)) {
+    return '邮箱格式无效';
+  }
+  if (email.length > 100) {
+    return '邮箱长度不能超过100字符';
+  }
+  return null;
+};
+
+const validatePassword = (password) => {
+  if (!password || typeof password !== 'string') {
+    return '密码是必需的';
+  }
+  if (password.length < 8) {
+    return '密码长度至少8个字符';
+  }
+  if (password.length > 128) {
+    return '密码长度不能超过128字符';
+  }
+  // 检查密码强度：至少包含字母和数字
+  if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+    return '密码必须包含字母和数字';
+  }
+  return null;
+};
 
 // 用户注册
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // 验证必填字段
-    if (!username || !email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: '用户名、邮箱和密码都是必需的'
-      });
+    // 输入验证
+    const usernameError = validateUsername(username);
+    if (usernameError) {
+      return res.status(400).json({ success: false, message: usernameError });
     }
 
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({ success: false, message: emailError });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
+    }
+
+    const trimmedUsername = username.trim();
+    const normalizedEmail = validator.normalizeEmail(email);
+
     // 检查用户名是否已存在
-    const [existingUsersByName] = await User.findByUsername(db, username);
+    const [existingUsersByName] = await User.findByUsername(db, trimmedUsername);
     if (existingUsersByName.length > 0) {
       return res.status(400).json({
         success: false,
@@ -29,7 +86,7 @@ router.post('/register', async (req, res) => {
     }
 
     // 检查邮箱是否已存在
-    const [existingUsersByEmail] = await User.findByEmail(db, email);
+    const [existingUsersByEmail] = await User.findByEmail(db, normalizedEmail);
     if (existingUsersByEmail.length > 0) {
       return res.status(400).json({
         success: false,
@@ -38,13 +95,13 @@ router.post('/register', async (req, res) => {
     }
 
     // 密码加密
-    const saltRounds = 10;
+    const saltRounds = 12; // 提高到12轮以增强安全性
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // 创建用户
     const [result] = await User.create(db, {
-      username,
-      email,
+      username: trimmedUsername,
+      email: normalizedEmail,
       password: hashedPassword
     });
 
@@ -52,7 +109,7 @@ router.post('/register', async (req, res) => {
 
     // 获取创建的用户信息（不包含密码）
     const [users] = await db.execute(
-      'SELECT id, username, email FROM users WHERE id = ?',
+      'SELECT id, username, email FROM users WHERE id = $1',
       [userId]
     );
 
@@ -90,9 +147,10 @@ router.post('/login', async (req, res) => {
     }
 
     // 查找用户
-    const [users] = await User.findByUsername(db, username);
+    const [users] = await User.findByUsername(db, username.trim());
     if (users.length === 0) {
-      return res.status(400).json({
+      // 使用统一的错误消息防止用户名枚举攻击
+      return res.status(401).json({
         success: false,
         message: '用户名或密码错误'
       });
@@ -103,7 +161,7 @@ router.post('/login', async (req, res) => {
     // 验证密码
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
-      return res.status(400).json({
+      return res.status(401).json({
         success: false,
         message: '用户名或密码错误'
       });
@@ -136,10 +194,9 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// 获取当前用户信息
-router.get('/me', async (req, res) => {
+// 获取当前用户信息（需要认证）
+router.get('/me', authenticate, async (req, res) => {
   try {
-    // 从请求中获取用户信息（由认证中间件添加）
     const userId = req.user.id;
 
     // 获取用户信息

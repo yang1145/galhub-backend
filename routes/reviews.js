@@ -11,26 +11,45 @@ router.post('/reviews', authenticate, async (req, res) => {
     const { gameId, rating, comment } = req.body;
     const userId = req.user.id;
 
-    // 验证必填字段
-    if (!gameId || !rating) {
+    // 验证gameId
+    const parsedGameId = parseInt(gameId);
+    if (!gameId || isNaN(parsedGameId) || parsedGameId < 1) {
       return res.status(400).json({
         success: false,
-        message: '游戏ID和评分都是必需的'
+        message: '游戏ID无效'
       });
     }
 
-    // 验证评分范围
-    if (rating < 1 || rating > 5) {
+    // 验证评分
+    const parsedRating = parseInt(rating);
+    if (!rating || isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
       return res.status(400).json({
         success: false,
         message: '评分必须在1-5之间'
       });
     }
 
+    // 验证评论内容
+    if (comment && (typeof comment !== 'string' || comment.length > 2000)) {
+      return res.status(400).json({
+        success: false,
+        message: '评论内容不能超过2000字符'
+      });
+    }
+
+    // 检查游戏是否存在
+    const [games] = await db.execute('SELECT id FROM games WHERE id = $1', [parsedGameId]);
+    if (games.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '游戏不存在'
+      });
+    }
+
     // 检查是否已经对该游戏发表过评论
     const [existingReviews] = await db.execute(
-      'SELECT id FROM reviews WHERE user_id = ? AND game_id = ?',
-      [userId, gameId]
+      'SELECT id FROM reviews WHERE user_id = $1 AND game_id = $2',
+      [userId, parsedGameId]
     );
 
     if (existingReviews.length > 0) {
@@ -43,9 +62,9 @@ router.post('/reviews', authenticate, async (req, res) => {
     // 创建评论
     const [result] = await Review.create(db, {
       userId,
-      gameId,
-      rating,
-      comment
+      gameId: parsedGameId,
+      rating: parsedRating,
+      comment: comment?.trim() || null
     });
 
     const reviewId = result.insertId;
@@ -71,8 +90,16 @@ router.post('/reviews', authenticate, async (req, res) => {
 router.get('/reviews/game/:gameId', async (req, res) => {
   try {
     const { gameId } = req.params;
+    const parsedGameId = parseInt(gameId);
 
-    const [reviews] = await Review.findByGameId(db, gameId);
+    if (isNaN(parsedGameId) || parsedGameId < 1) {
+      return res.status(400).json({
+        success: false,
+        message: '游戏ID无效'
+      });
+    }
+
+    const [reviews] = await Review.findByGameId(db, parsedGameId);
 
     res.json({
       success: true,
@@ -91,8 +118,16 @@ router.get('/reviews/game/:gameId', async (req, res) => {
 router.get('/reviews/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
+    const parsedUserId = parseInt(userId);
 
-    const [reviews] = await Review.findByUserId(db, userId);
+    if (isNaN(parsedUserId) || parsedUserId < 1) {
+      return res.status(400).json({
+        success: false,
+        message: '用户ID无效'
+      });
+    }
+
+    const [reviews] = await Review.findByUserId(db, parsedUserId);
 
     res.json({
       success: true,
@@ -114,18 +149,35 @@ router.put('/reviews/:id', authenticate, async (req, res) => {
     const { rating, comment } = req.body;
     const userId = req.user.id;
 
+    const parsedId = parseInt(id);
+    if (isNaN(parsedId) || parsedId < 1) {
+      return res.status(400).json({
+        success: false,
+        message: '评论ID无效'
+      });
+    }
+
     // 验证评分范围
-    if (rating && (rating < 1 || rating > 5)) {
+    const parsedRating = parseInt(rating);
+    if (rating !== undefined && (isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5)) {
       return res.status(400).json({
         success: false,
         message: '评分必须在1-5之间'
       });
     }
 
+    // 验证评论内容
+    if (comment && (typeof comment !== 'string' || comment.length > 2000)) {
+      return res.status(400).json({
+        success: false,
+        message: '评论内容不能超过2000字符'
+      });
+    }
+
     // 检查评论是否存在且属于当前用户
     const [reviews] = await db.execute(
-      'SELECT id FROM reviews WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT id, rating FROM reviews WHERE id = $1 AND user_id = $2',
+      [parsedId, userId]
     );
 
     if (reviews.length === 0) {
@@ -136,10 +188,13 @@ router.put('/reviews/:id', authenticate, async (req, res) => {
     }
 
     // 更新评论
-    await Review.update(db, id, { rating, comment });
+    await Review.update(db, parsedId, { 
+      rating: parsedRating || reviews[0].rating, 
+      comment: comment?.trim() 
+    });
 
     // 获取更新后的评论信息
-    const [updatedReviews] = await Review.findById(db, id);
+    const [updatedReviews] = await Review.findById(db, parsedId);
 
     res.json({
       success: true,
@@ -161,10 +216,18 @@ router.delete('/reviews/:id', authenticate, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
+    const parsedId = parseInt(id);
+    if (isNaN(parsedId) || parsedId < 1) {
+      return res.status(400).json({
+        success: false,
+        message: '评论ID无效'
+      });
+    }
+
     // 检查评论是否存在且属于当前用户
     const [reviews] = await db.execute(
-      'SELECT id FROM reviews WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT id FROM reviews WHERE id = $1 AND user_id = $2',
+      [parsedId, userId]
     );
 
     if (reviews.length === 0) {
@@ -175,7 +238,7 @@ router.delete('/reviews/:id', authenticate, async (req, res) => {
     }
 
     // 删除评论
-    await Review.delete(db, id);
+    await Review.delete(db, parsedId);
 
     res.json({
       success: true,

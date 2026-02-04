@@ -1,12 +1,13 @@
 # GalHub Backend
 
-一个基于 Node.js 和 MySQL 的游戏管理系统后端 API。
+一个基于 Node.js 和 PostgreSQL 的游戏管理系统后端 API。
 
 ## 目录
 
 - [功能特性](#功能特性)
 - [技术栈](#技术栈)
 - [安装指南](#安装指南)
+- [环境变量配置](#环境变量配置)
 - [API 接口文档](#api-接口文档)
 - [数据库结构](#数据库结构)
 - [开发命令](#开发命令)
@@ -20,60 +21,85 @@
 - 游戏与标签的多对多关系
 - 用户评论和评分功能
 - RESTful API 设计
+- 分页查询支持
+- 安全防护（Helmet、速率限制、输入验证）
 
 ## 技术栈
 
 - Node.js
 - Express.js
-- MySQL
-- mysql2 驱动
+- PostgreSQL
+- JWT (jsonwebtoken)
+- bcryptjs（密码加密）
+- Helmet（安全响应头）
+- express-rate-limit（速率限制）
+- validator（输入验证）
 
 ## 安装指南
 
 1. 克隆项目到本地：
-   ```
+   ```bash
    git clone <repository-url>
    ```
 
 2. 进入项目目录：
-   ```
+   ```bash
    cd galhub-backend
    ```
 
 3. 安装依赖：
-   ```
+   ```bash
    npm install
    ```
 
-4. 配置数据库：
-   在 `.env` 文件中设置你的 MySQL 数据库连接信息：
-   ```
-   DB_HOST=localhost
-   DB_USER=your_username
-   DB_PASSWORD=your_password
-   DB_NAME=galhub
+4. 配置环境变量：
+   复制 `.env.example` 为 `.env` 并修改配置：
+   ```bash
+   cp .env.example .env
    ```
 
-5. 初始化数据库（创建表结构）：
+5. 创建 PostgreSQL 数据库：
+   ```sql
+   CREATE DATABASE galhub;
    ```
+
+6. 初始化数据库（创建表结构）：
+   ```bash
    npm run init-db
    ```
 
-6. （可选）填充示例数据：
-   ```
+7. （可选）填充示例数据：
+   ```bash
    npm run seed
    ```
 
-7. 启动开发服务器：
-   ```
+8. 启动开发服务器：
+   ```bash
    npm run dev
    ```
+
+## 环境变量配置
+
+| 变量名 | 描述 | 默认值 | 必需 |
+|--------|------|--------|------|
+| PORT | 服务器端口 | 3000 | 否 |
+| NODE_ENV | 运行环境 | development | 否 |
+| DB_HOST | 数据库主机 | localhost | 否 |
+| DB_PORT | 数据库端口 | 5432 | 否 |
+| DB_USER | 数据库用户名 | postgres | 否 |
+| DB_PASSWORD | 数据库密码 | - | 是 |
+| DB_NAME | 数据库名称 | galhub | 否 |
+| JWT_SECRET | JWT签名密钥 | - | 生产环境必需 |
+| CORS_ORIGIN | 允许的跨域来源 | http://localhost:3000 | 否 |
 
 ## API 接口文档
 
 有关完整的 API 文档，请参阅 [API.md](API.md) 文件。
 
-以下是主要 API 接口的简要说明：
+### 速率限制
+
+- 全局限制：每个 IP 15分钟内最多 100 个请求
+- 认证接口（登录/注册）：每个 IP 15分钟内最多 10 次尝试
 
 ### 用户认证接口
 
@@ -90,6 +116,11 @@ POST /api/register
   "password": "密码"
 }
 ```
+
+验证规则：
+- 用户名：3-50字符，只能包含字母、数字、下划线和中文
+- 邮箱：有效的邮箱格式，最长100字符
+- 密码：8-128字符，必须包含字母和数字
 
 #### 用户登录
 ```
@@ -115,14 +146,45 @@ Authorization: Bearer <token>
 
 ### 游戏相关接口
 
-#### 获取游戏列表
+#### 获取游戏列表（支持分页）
 ```
-GET /api/games
+GET /api/games?page=1&limit=20
 ```
 
-返回所有游戏及其标签信息。
+查询参数：
+- page：页码（默认1）
+- limit：每页数量（默认20，最大100）
 
-#### 创建新游戏
+返回示例：
+```json
+{
+  "success": true,
+  "data": [...],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+#### 获取最新游戏列表
+```
+GET /api/games/latest?limit=10
+```
+
+#### 获取热门游戏列表
+```
+GET /api/games/popular?limit=10
+```
+
+#### 获取单个游戏详情
+```
+GET /api/games/:id
+```
+
+#### 创建新游戏（需要认证）
 ```
 POST /api/games
 ```
@@ -141,13 +203,13 @@ POST /api/games
 ```
 
 参数说明：
-- title: 游戏标题（必需）
+- title: 游戏标题（必需，1-255字符）
 - alias: 游戏别名（可选）
-- link: 游戏链接（可选）
+- link: 游戏链接（可选，需为有效URL）
 - coverImage: 游戏封面图片链接（可选）
 - description: 游戏简介（可选）
-- rating: 游戏评分（可选，默认为0.00）
-- tags: 标签数组（可选）
+- rating: 游戏评分（可选，0-10）
+- tags: 标签数组（可选，最多20个）
 
 ### 标签相关接口
 
@@ -155,8 +217,6 @@ POST /api/games
 ```
 GET /api/tags
 ```
-
-返回所有标签。
 
 #### 创建新标签
 ```
@@ -172,7 +232,7 @@ POST /api/tags
 
 ### 评论相关接口
 
-#### 创建评论
+#### 创建评论（需要认证）
 ```
 POST /api/reviews
 ```
@@ -185,10 +245,11 @@ POST /api/reviews
   "comment": "这个游戏真的很棒！"
 }
 ```
-需要在请求头中包含有效的JWT令牌：
-```
-Authorization: Bearer <token>
-```
+
+验证规则：
+- gameId：必需，游戏必须存在
+- rating：必需，1-5之间的整数
+- comment：可选，最长2000字符
 
 #### 获取特定游戏的所有评论
 ```
@@ -200,7 +261,7 @@ GET /api/reviews/game/:gameId
 GET /api/reviews/user/:userId
 ```
 
-#### 更新评论
+#### 更新评论（需要认证）
 ```
 PUT /api/reviews/:id
 ```
@@ -212,18 +273,10 @@ PUT /api/reviews/:id
   "comment": "重新评价后，我觉得这个游戏还不错。"
 }
 ```
-需要在请求头中包含有效的JWT令牌：
-```
-Authorization: Bearer <token>
-```
 
-#### 删除评论
+#### 删除评论（需要认证）
 ```
 DELETE /api/reviews/:id
-```
-需要在请求头中包含有效的JWT令牌：
-```
-Authorization: Bearer <token>
 ```
 
 ## 数据库结构
@@ -231,7 +284,7 @@ Authorization: Bearer <token>
 ### users 表
 | 字段 | 类型 | 描述 |
 |------|------|------|
-| id | INT (PK) | 用户ID |
+| id | SERIAL (PK) | 用户ID |
 | username | VARCHAR(50) | 用户名（唯一） |
 | email | VARCHAR(100) | 邮箱地址（唯一） |
 | password | VARCHAR(255) | 加密后的密码 |
@@ -241,7 +294,7 @@ Authorization: Bearer <token>
 ### games 表
 | 字段 | 类型 | 描述 |
 |------|------|------|
-| id | INT (PK) | 游戏ID |
+| id | SERIAL (PK) | 游戏ID |
 | title | VARCHAR(255) | 游戏标题 |
 | alias | VARCHAR(255) | 游戏别名 |
 | link | TEXT | 游戏链接 |
@@ -254,32 +307,44 @@ Authorization: Bearer <token>
 ### tags 表
 | 字段 | 类型 | 描述 |
 |------|------|------|
-| id | INT (PK) | 标签ID |
-| name | VARCHAR(100) | 标签名称 |
+| id | SERIAL (PK) | 标签ID |
+| name | VARCHAR(100) | 标签名称（唯一） |
 | created_at | TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | 更新时间 |
 
 ### game_tags 表（关联表）
 | 字段 | 类型 | 描述 |
 |------|------|------|
-| id | INT (PK) | 主键 |
+| id | SERIAL (PK) | 主键 |
 | game_id | INT (FK) | 游戏ID |
 | tag_id | INT (FK) | 标签ID |
 
 ### reviews 表
 | 字段 | 类型 | 描述 |
 |------|------|------|
-| id | INT (PK) | 评论ID |
+| id | SERIAL (PK) | 评论ID |
 | user_id | INT (FK) | 用户ID |
 | game_id | INT (FK) | 游戏ID |
-| rating | TINYINT | 评分 (1-5) |
+| rating | SMALLINT | 评分 (1-5) |
 | comment | TEXT | 评论内容 |
 | created_at | TIMESTAMP | 创建时间 |
 | updated_at | TIMESTAMP | 更新时间 |
 
+### 数据库索引
+
+系统启动时会自动创建以下索引以提升查询性能：
+- `idx_games_created_at` - 游戏创建时间
+- `idx_games_rating` - 游戏评分
+- `idx_reviews_game_id` - 评论的游戏ID
+- `idx_reviews_user_id` - 评论的用户ID
+- `idx_game_tags_game_id` - 游戏标签关联
+- `idx_game_tags_tag_id` - 标签游戏关联
+- `idx_users_username` - 用户名
+- `idx_users_email` - 用户邮箱
+
 ## 开发命令
 
-- `npm run dev` - 启动开发服务器
+- `npm run dev` - 启动开发服务器（热重载）
 - `npm start` - 启动生产服务器
 - `npm run init-db` - 初始化数据库表结构
 - `npm run seed` - 填充示例数据

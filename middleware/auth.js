@@ -1,13 +1,24 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const db = require('../config/db');
-const User = require('../models/User');
+
+// 获取JWT密钥（生产环境必须设置环境变量）
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('生产环境必须设置JWT_SECRET环境变量');
+    }
+    console.warn('警告: 未设置JWT_SECRET，使用开发环境默认密钥（不要在生产环境使用）');
+    return 'dev_secret_key_do_not_use_in_production';
+  }
+  return secret;
+};
 
 // 生成JWT令牌
 const generateToken = (user) => {
   return jwt.sign(
     { id: user.id, username: user.username },
-    process.env.JWT_SECRET || 'fallback_secret_key',
+    getJwtSecret(),
     { expiresIn: '24h' }
   );
 };
@@ -15,7 +26,7 @@ const generateToken = (user) => {
 // 验证JWT令牌
 const verifyToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
+    return jwt.verify(token, getJwtSecret());
   } catch (error) {
     return null;
   }

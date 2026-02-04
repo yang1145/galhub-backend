@@ -37,7 +37,7 @@ router.post('/tags', async (req, res) => {
     const tagId = result.insertId;
     
     // 返回创建的标签
-    const [tags] = await db.execute('SELECT * FROM tags WHERE id = ?', [tagId]);
+    const [tags] = await db.execute('SELECT * FROM tags WHERE id = $1', [tagId]);
     
     res.status(201).json({
       success: true,

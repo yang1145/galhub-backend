@@ -25,7 +25,12 @@ async function seedDatabase() {
         tagIds.push(result.insertId);
         console.log(`标签 "${tagName}" 创建成功`);
       } catch (error) {
-        console.log(`标签 "${tagName}" 可能已存在`);
+        // 标签可能已存在，尝试获取现有标签ID
+        const [existingTags] = await db.execute('SELECT id FROM tags WHERE name = $1', [tagName]);
+        if (existingTags.length > 0) {
+          tagIds.push(existingTags[0].id);
+          console.log(`标签 "${tagName}" 已存在`);
+        }
       }
     }
     
@@ -75,9 +80,11 @@ async function seedDatabase() {
     }
     
     console.log('示例数据插入完成');
+    await db.end();
     process.exit(0);
   } catch (error) {
     console.error('数据填充过程中出错:', error);
+    await db.end();
     process.exit(1);
   }
 }

@@ -1,17 +1,26 @@
-const mysql = require('mysql2');
+const { Pool } = require('pg');
 
 // 创建数据库连接池
-const pool = mysql.createPool({
+const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
+  user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'galhub',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
+  port: process.env.DB_PORT || 5432,
+  max: 10
 });
 
-// 获取数据库连接
-const db = pool.promise();
+// 封装查询方法，使返回格式与mysql2兼容
+const db = {
+  query: async (sql, params) => {
+    const result = await pool.query(sql, params);
+    return [result.rows, result];
+  },
+  execute: async (sql, params) => {
+    const result = await pool.query(sql, params);
+    return [result.rows, result];
+  },
+  end: () => pool.end()
+};
 
 module.exports = db;

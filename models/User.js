@@ -4,7 +4,8 @@ class User {
     this.username = username;
     this.email = email;
     this.password = password;
-    this.role = role || 'user'; // 默认角色为普通用户
+    // 确保 role 字段始终有有效值
+    this.role = (role && typeof role === 'string') ? role : 'user';
   }
 
   // 创建用户表
@@ -61,6 +62,13 @@ class User {
       WHERE id = $2
     `;
     return await db.execute(sql, [hashedPassword, userId]);
+  }
+
+  // 获取用户总数
+  static async count(db) {
+    const sql = 'SELECT COUNT(*) as total FROM users';
+    const [rows] = await db.execute(sql);
+    return parseInt(rows[0].total);
   }
 }
 

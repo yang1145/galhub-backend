@@ -146,7 +146,7 @@ router.post('/register', async (req, res) => {
 
     // 获取创建的用户信息（不包含密码）
     const [users] = await db.execute(
-      'SELECT id, username, email FROM users WHERE id = $1',
+      'SELECT id, username, email, role FROM users WHERE id = $1',
       [userId]
     );
 
@@ -257,6 +257,9 @@ router.get('/me', authenticate, async (req, res) => {
       });
     }
 
+    // 确保role字段有效
+    const userRole = users[0].role && typeof users[0].role === 'string' ? users[0].role : 'user';
+
     res.json({
       success: true,
       data: {
@@ -264,7 +267,7 @@ router.get('/me', authenticate, async (req, res) => {
           id: users[0].id,
           username: users[0].username,
           email: users[0].email,
-          role: users[0].role
+          role: userRole
         }
       }
     });
@@ -299,7 +302,7 @@ router.put('/me/password', authenticate, async (req, res) => {
 
     // 获取当前用户信息（包含密码）
     const [users] = await db.execute(
-      'SELECT * FROM users WHERE id = $1',
+      'SELECT id, username, email, role, password FROM users WHERE id = $1',
       [userId]
     );
     

@@ -1,6 +1,8 @@
 const express = require('express');
 const Game = require('../models/Game');
 const Tag = require('../models/Tag');
+const User = require('../models/User');
+const Review = require('../models/Review');
 const db = require('../config/db');
 const { authenticate } = require('../middleware/auth');
 
@@ -225,6 +227,33 @@ router.post('/games', authenticate, async (req, res) => {
     res.status(500).json({
       success: false,
       message: '创建游戏失败'
+    });
+  }
+});
+
+// 获取统计信息
+router.get('/stats', async (req, res) => {
+  try {
+    // 并行获取三个统计数字
+    const [gameCount, userCount, reviewCount] = await Promise.all([
+      Game.count(db),
+      User.count(db),
+      Review.count(db)
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        gameCount: gameCount,
+        userCount: userCount,
+        reviewCount: reviewCount
+      }
+    });
+  } catch (error) {
+    console.error('获取统计信息失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取统计信息失败'
     });
   }
 });

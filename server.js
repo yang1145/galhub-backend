@@ -22,9 +22,9 @@ const captchaRoutes = require('./routes/captcha');
 // 创建Express应用
 const app = express();
 
-// 信任代理设置 - 解决 X-Forwarded-For 头问题
-// 当应用部署在反向代理后面时，需要信任代理传递的头部信息
-app.set('trust proxy', true);
+// 信任代理设置 - 在Docker容器环境中设置为1以正确处理X-Forwarded-For头
+// 这允许express-rate-limit等中间件准确识别真实客户端IP
+app.set('trust proxy', 1);
 
 // 安全中间件
 app.use(helmet());

@@ -24,7 +24,12 @@ const generateToken = (user) => {
 // 验证JWT令牌
 const verifyToken = (token) => {
   try {
-    return jwt.verify(token, getJwtSecret());
+    const decoded = jwt.verify(token, getJwtSecret());
+    // 确保解码后的用户对象包含有效的role字段
+    if (!decoded.role || typeof decoded.role !== 'string') {
+      decoded.role = 'user';
+    }
+    return decoded;
   } catch (error) {
     return null;
   }

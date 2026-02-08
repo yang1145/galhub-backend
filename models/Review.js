@@ -90,6 +90,13 @@ class Review {
     const sql = 'DELETE FROM reviews WHERE id = $1';
     return db.execute(sql, [id]);
   }
+
+  // 获取评论总数
+  static async count(db) {
+    const sql = 'SELECT COUNT(*) as total FROM reviews';
+    const [rows] = await db.execute(sql);
+    return parseInt(rows[0].total);
+  }
 }
 
 module.exports = Review;

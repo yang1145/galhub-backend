@@ -44,6 +44,27 @@ Authorization: Bearer <your-jwt-token>
 
 ---
 
+## 统计 API
+
+### 获取系统统计信息
+**GET** `/api/stats`
+
+获取游戏总数、用户总数和评论总数的统计信息。
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "gameCount": 150,
+    "userCount": 25,
+    "reviewCount": 89
+  }
+}
+```
+
+---
+
 ## 验证码 API
 
 ### 生成验证码

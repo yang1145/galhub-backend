@@ -36,55 +36,101 @@ GalHub Backend 是一个基于 Node.js 和 PostgreSQL 构建的游戏管理系�
 Authorization: Bearer <your-jwt-token>
 ```
 
+**管理员权限说明**:
+- 用户角色存储在JWT令牌的`role`字段中
+- 普通用户: `role: "user"`
+- 管理员: `role: "admin"`
+- 管理员接口需要`role: "admin"`才能访问，否则返回403错误
+
 ---
 
-## 用户相关API
+## 验证码 API
 
-### 1. 用户注册
-**POST** `/api/register`
+### 生成验证码
+**GET** `/api/captcha/generate`
 
-**请求体**:
-```json
-{
-  "username": "用户名",
-  "email": "邮箱地址",
-  "password": "密码"
-}
-```
+生成图像验证码。
 
-**验证规则**:
-- 用户名：3-50字符，只能包含字母、数字、下划线和中文
-- 邮箱：有效的邮箱格式，不超过100字符
-- 密码：至少8字符，必须包含字母和数字，不超过128字符
-
-**成功响应**:
+**响应示例:**
 ```json
 {
   "success": true,
-  "message": "用户注册成功",
   "data": {
-    "user": {
-      "id": 1,
-      "username": "用户名",
-      "email": "邮箱地址"
-    },
-    "token": "jwt-token"
+    "captchaId": "1234567890abcdef",
+    "svg": "<svg>...</svg>"
   }
 }
 ```
 
-### 2. 用户登录
-**POST** `/api/login`
+### 验证验证码
+**POST** `/api/captcha/verify`
 
-**请求体**:
+验证用户输入的验证码。
+
+**请求体:**
 ```json
 {
-  "username": "用户名",
-  "password": "密码"
+  "captchaId": "1234567890abcdef",
+  "captchaText": "abcd"
 }
 ```
 
-**成功响应**:
+**响应示例（成功）:**
+```json
+{
+  "success": true,
+  "message": "验证码验证成功"
+}
+```
+
+**响应示例（失败）:**
+```json
+{
+  "success": false,
+  "message": "验证码错误"
+}
+```
+
+## 用户 API
+
+### 用户注册
+**POST** `/api/register`
+
+创建新用户账户。
+
+**请求体:**
+```json
+{
+  "username": "用户名",
+  "email": "邮箱",
+  "password": "密码",
+  "captchaId": "验证码ID",
+  "captchaText": "用户输入的验证码"
+}
+```
+
+**验证规则:**
+- 用户名：3-50字符，只能包含字母、数字、下划线和中文
+- 邮箱：有效的邮箱格式，不超过100字符
+- 密码：至少8个字符，必须包含字母和数字，不超过128字符
+- 验证码：必需，用于人机验证
+
+### 用户登录
+**POST** `/api/login`
+
+用户登录获取JWT令牌。
+
+**请求体:**
+```json
+{
+  "username": "用户名",
+  "password": "密码",
+  "captchaId": "验证码ID", 
+  "captchaText": "用户输入的验证码"
+}
+```
+
+**响应示例:**
 ```json
 {
   "success": true,
@@ -93,14 +139,15 @@ Authorization: Bearer <your-jwt-token>
     "user": {
       "id": 1,
       "username": "用户名",
-      "email": "邮箱地址"
+      "email": "邮箱",
+      "role": "user"
     },
-    "token": "jwt-token"
+    "token": "jwt-token-here"
   }
 }
 ```
 
-### 3. 获取当前用户信息
+### 获取当前用户信息
 **GET** `/api/me` (需要认证)
 
 **成功响应**:
@@ -111,9 +158,64 @@ Authorization: Bearer <your-jwt-token>
     "user": {
       "id": 1,
       "username": "用户名",
-      "email": "邮箱地址"
+      "email": "邮箱地址",
+      "role": "user"
     }
   }
+}
+```
+
+### 修改自己的密码
+**PUT** `/api/me/password` (需要认证)
+
+用户修改自己的密码。
+
+**请求体:**
+```json
+{
+  "currentPassword": "当前密码",
+  "newPassword": "新密码"
+}
+```
+
+**验证规则:**
+- 当前密码：必需，必须与用户当前密码匹配
+- 新密码：必需，必须符合密码强度要求（至少8个字符，包含字母和数字）
+- 新密码不能与当前密码相同
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "message": "密码修改成功"
+}
+```
+
+### 管理员修改用户密码
+**PUT** `/api/admin/users/:userId/password` (需要管理员权限)
+
+管理员修改任意用户的密码。
+
+**路径参数**:
+- `userId`: 要修改密码的用户ID
+
+**请求体:**
+```json
+{
+  "newPassword": "新密码"
+}
+```
+
+**验证规则:**
+- 新密码：必需，必须符合密码强度要求（至少8个字符，包含字母和数字）
+- 不能用于修改管理员自己的密码（应使用 `/me/password` 接口）
+- 目标用户必须存在
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "message": "用户密码修改成功"
 }
 ```
 
@@ -246,6 +348,173 @@ Authorization: Bearer <your-jwt-token>
       {"id": 2, "name": "标签2"}
     ]
   }
+}
+```
+
+---
+
+## 管理员专属API
+
+> **注意**: 所有管理员API都需要管理员权限（`role: "admin"`），普通用户访问将返回403错误。
+
+### 1. 获取游戏列表（管理员）
+**GET** `/api/admin/games` (需要管理员权限)
+
+**查询参数**:
+- `page`: 页码 (默认1)
+- `limit`: 每页数量 (1-100，默认20)
+- `search`: 搜索关键词（可选，支持标题和别名模糊搜索）
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": [...], // 游戏数组
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 100,
+    "totalPages": 5
+  }
+}
+```
+
+### 2. 获取单个游戏详情（管理员）
+**GET** `/api/admin/games/:id` (需要管理员权限)
+
+**路径参数**:
+- `id`: 游戏ID
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "游戏标题",
+    "alias": "别名",
+    "link": "链接",
+    "coverImage": "封面图片URL",
+    "description": "描述",
+    "rating": 8.5,
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "tags": [
+      {"id": 1, "name": "标签1"},
+      {"id": 2, "name": "标签2"}
+    ]
+  }
+}
+```
+
+### 3. 创建新游戏（管理员）
+**POST** `/api/admin/games` (需要管理员权限)
+
+**请求体**:
+```json
+{
+  "title": "游戏标题",
+  "alias": "别名",
+  "link": "游戏链接",
+  "coverImage": "封面图片URL",
+  "description": "游戏描述",
+  "rating": 8.5,
+  "tags": ["标签1", "标签2"]
+}
+```
+
+**验证规则**:
+- 标题：1-255字符（必需）
+- 评分：0-10之间
+- 链接：有效的URL格式（可为null）
+- 标签：最多20个，每个不超过100字符
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "游戏标题",
+    "alias": "别名",
+    "link": "链接",
+    "coverImage": "封面图片URL",
+    "description": "描述",
+    "rating": 8.5,
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "tags": [
+      {"id": 1, "name": "标签1"},
+      {"id": 2, "name": "标签2"}
+    ]
+  }
+}
+```
+
+### 4. 更新游戏信息（管理员）
+**PUT** `/api/admin/games/:id` (需要管理员权限)
+
+**路径参数**:
+- `id`: 游戏ID
+
+**请求体**（支持部分更新）:
+```json
+{
+  "title": "更新后的游戏标题",
+  "alias": "更新后的别名",
+  "link": "更新后的链接",
+  "coverImage": "更新后的封面图片URL",
+  "description": "更新后的描述",
+  "rating": 9.0,
+  "tags": ["新标签1", "新标签2"]
+}
+```
+
+**验证规则**:
+- 至少提供一个要更新的字段
+- 标题：1-255字符（如果提供）
+- 评分：0-10之间（如果提供）
+- 链接：有效的URL格式或null（如果提供）
+- 标签：最多20个，每个不超过100字符（如果提供）
+- 如果提供tags字段，将替换游戏的所有现有标签
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "更新后的游戏标题",
+    "alias": "更新后的别名",
+    "link": "更新后的链接",
+    "coverImage": "更新后的封面图片URL",
+    "description": "更新后的描述",
+    "rating": 9.0,
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "tags": [
+      {"id": 3, "name": "新标签1"},
+      {"id": 4, "name": "新标签2"}
+    ]
+  }
+}
+```
+
+### 5. 删除游戏（管理员）
+**DELETE** `/api/admin/games/:id` (需要管理员权限)
+
+**路径参数**:
+- `id`: 游戏ID
+
+**说明**:
+- 删除游戏时会自动清理相关的标签关联和评论
+- 如果游戏不存在，返回404错误
+
+**成功响应**:
+```json
+{
+  "success": true,
+  "message": "游戏删除成功"
 }
 ```
 
@@ -412,6 +681,7 @@ Authorization: Bearer <your-jwt-token>
 
 - **400**: 请求参数错误或验证失败
 - **401**: 未认证或认证失败
+- **403**: 权限不足（尝试访问管理员接口但不是管理员）
 - **404**: 资源未找到
 - **429**: 请求过于频繁（速率限制）
 - **500**: 服务器内部错误
@@ -421,10 +691,11 @@ Authorization: Bearer <your-jwt-token>
 1. **输入验证**: 所有用户输入都经过严格验证
 2. **密码加密**: 使用bcryptjs加密存储密码
 3. **JWT认证**: 无状态认证，令牌有效期24小时
-4. **速率限制**: 防止暴力破解和DDoS攻击
-5. **CORS控制**: 限制跨域请求来源
-6. **Helmet中间件**: HTTP头部安全加固
-7. **SQL注入防护**: 使用参数化查询
+4. **角色权限控制**: 管理员和普通用户权限分离
+5. **速率限制**: 防止暴力破解和DDoS攻击
+6. **CORS控制**: 限制跨域请求来源
+7. **Helmet中间件**: HTTP头部安全加固
+8. **SQL注入防护**: 使用参数化查询
 
 ## 数据库索引优化
 
@@ -436,3 +707,12 @@ Authorization: Bearer <your-jwt-token>
 - `idx_users_username`: 按用户名查询
 - `idx_users_email`: 按邮箱查询
 - `idx_game_tags_game_id` 和 `idx_game_tags_tag_id`: 游戏标签关联查询
+
+## 默认管理员账户
+
+种子数据脚本会自动创建默认管理员账户：
+- **用户名**: `admin`
+- **邮箱**: `admin@galhub.com`
+- **密码**: `admin123`
+
+> **安全提醒**: 生产环境中请立即修改默认管理员密码！

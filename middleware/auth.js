@@ -15,7 +15,7 @@ const getJwtSecret = () => {
 // 生成JWT令牌
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, username: user.username },
+    { id: user.id, username: user.username, role: user.role },
     getJwtSecret(),
     { expiresIn: '24h' }
   );
@@ -41,6 +41,10 @@ const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('认证失败: 未提供有效的Authorization头', {
+        headers: Object.keys(req.headers),
+        authHeader: authHeader
+      });
       return res.status(401).json({
         success: false,
         message: '未提供访问令牌'
@@ -51,6 +55,7 @@ const authenticate = async (req, res, next) => {
     const decoded = verifyToken(token);
     
     if (!decoded) {
+      console.log('认证失败: JWT令牌无效或已过期');
       return res.status(401).json({
         success: false,
         message: '无效的访问令牌'
@@ -69,9 +74,51 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+// 管理员权限验证中间件
+const requireAdmin = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: '未提供访问令牌'
+      });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = verifyToken(token);
+    
+    if (!decoded) {
+      return res.status(401).json({
+        success: false,
+        message: '无效的访问令牌'
+      });
+    }
+
+    // 检查用户角色是否为管理员
+    if (decoded.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: '需要管理员权限'
+      });
+    }
+
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error('管理员权限验证错误:', error);
+    return res.status(500).json({
+      success: false,
+      message: '服务器内部错误'
+    });
+  }
+};
+
 module.exports = {
   generateToken,
   verifyToken,
   verifyPassword,
-  authenticate
+  authenticate,
+  requireAdmin
 };

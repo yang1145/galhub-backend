@@ -16,9 +16,15 @@ const gameRoutes = require('./routes/games');
 const tagRoutes = require('./routes/tags');
 const userRoutes = require('./routes/users');
 const reviewRoutes = require('./routes/reviews');
+const adminRoutes = require('./routes/admin');
+const captchaRoutes = require('./routes/captcha');
 
 // 创建Express应用
 const app = express();
+
+// 信任代理设置 - 解决 X-Forwarded-For 头问题
+// 当应用部署在反向代理后面时，需要信任代理传递的头部信息
+app.set('trust proxy', true);
 
 // 安全中间件
 app.use(helmet());
@@ -108,6 +114,8 @@ app.use('/api', gameRoutes);
 app.use('/api', tagRoutes);
 app.use('/api', userRoutes);
 app.use('/api', reviewRoutes);
+app.use('/api', adminRoutes);
+app.use('/api/captcha', captchaRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: '欢迎来到GalHub游戏管理API' });

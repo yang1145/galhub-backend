@@ -3,7 +3,8 @@ const bcrypt = require('bcryptjs');
 const validator = require('validator');
 const db = require('../config/db');
 const User = require('../models/User');
-const { generateToken, authenticate } = require('../middleware/auth');
+const { generateToken, authenticate, requireAdmin, verifyPassword } = require('../middleware/auth');
+const captchaStore = require('../utils/captchaStore');
 
 const router = express.Router();
 
@@ -52,10 +53,46 @@ const validatePassword = (password) => {
   return null;
 };
 
+// 验证码验证辅助函数
+const validateCaptcha = (captchaId, captchaText) => {
+  if (!captchaId || !captchaText) {
+    return '验证码ID和验证码文本都是必需的';
+  }
+
+  const storedCaptcha = captchaStore.get(captchaId);
+  
+  if (!storedCaptcha) {
+    return '验证码不存在或已过期';
+  }
+
+  // 检查是否过期
+  if (Date.now() > storedCaptcha.expiresAt) {
+    captchaStore.delete(captchaId);
+    return '验证码已过期';
+  }
+
+  // 验证验证码（不区分大小写）
+  const isValid = storedCaptcha.text === captchaText.toLowerCase();
+  
+  if (!isValid) {
+    return '验证码错误';
+  }
+
+  // 验证成功后删除验证码
+  captchaStore.delete(captchaId);
+  return null;
+};
+
 // 用户注册
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, email, password, captchaId, captchaText } = req.body;
+
+    // 验证码验证
+    const captchaError = validateCaptcha(captchaId, captchaText);
+    if (captchaError) {
+      return res.status(400).json({ success: false, message: captchaError });
+    }
 
     // 输入验证
     const usernameError = validateUsername(username);
@@ -120,7 +157,12 @@ router.post('/register', async (req, res) => {
       success: true,
       message: '用户注册成功',
       data: {
-        user: users[0],
+        user: {
+          id: users[0].id,
+          username: users[0].username,
+          email: users[0].email,
+          role: users[0].role
+        },
         token
       }
     });
@@ -136,7 +178,13 @@ router.post('/register', async (req, res) => {
 // 用户登录
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, captchaId, captchaText } = req.body;
+
+    // 验证码验证
+    const captchaError = validateCaptcha(captchaId, captchaText);
+    if (captchaError) {
+      return res.status(400).json({ success: false, message: captchaError });
+    }
 
     // 验证必填字段
     if (!username || !password) {
@@ -174,7 +222,8 @@ router.post('/login', async (req, res) => {
     const userInfo = {
       id: user.id,
       username: user.username,
-      email: user.email
+      email: user.email,
+      role: user.role
     };
 
     res.json({
@@ -211,7 +260,12 @@ router.get('/me', authenticate, async (req, res) => {
     res.json({
       success: true,
       data: {
-        user: users[0]
+        user: {
+          id: users[0].id,
+          username: users[0].username,
+          email: users[0].email,
+          role: users[0].role
+        }
       }
     });
   } catch (error) {
@@ -219,6 +273,137 @@ router.get('/me', authenticate, async (req, res) => {
     res.status(500).json({
       success: false,
       message: '获取用户信息失败'
+    });
+  }
+});
+
+// 用户修改自己的密码（需要认证）
+router.put('/me/password', authenticate, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    // 验证必填字段
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: '当前密码和新密码都是必需的'
+      });
+    }
+
+    // 验证新密码强度
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
+    }
+
+    // 获取当前用户信息（包含密码）
+    const [users] = await db.execute(
+      'SELECT * FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '用户未找到'
+      });
+    }
+
+    const user = users[0];
+
+    // 验证当前密码
+    const isCurrentPasswordValid = await verifyPassword(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: '当前密码错误'
+      });
+    }
+
+    // 检查新密码是否与当前密码相同
+    if (await verifyPassword(newPassword, user.password)) {
+      return res.status(400).json({
+        success: false,
+        message: '新密码不能与当前密码相同'
+      });
+    }
+
+    // 加密新密码
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // 更新密码
+    await User.updatePassword(db, userId, hashedNewPassword);
+
+    res.json({
+      success: true,
+      message: '密码修改成功'
+    });
+  } catch (error) {
+    console.error('修改密码错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '修改密码失败'
+    });
+  }
+});
+
+// 管理员修改任意用户密码（需要管理员权限）
+router.put('/admin/users/:userId/password', requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { newPassword } = req.body;
+    const adminId = req.user.id;
+
+    // 验证用户ID
+    const targetUserId = parseInt(userId);
+    if (isNaN(targetUserId) || targetUserId < 1) {
+      return res.status(400).json({
+        success: false,
+        message: '无效的用户ID'
+      });
+    }
+
+    // 防止管理员修改自己的密码通过此接口（应使用/me/password）
+    if (targetUserId === adminId) {
+      return res.status(400).json({
+        success: false,
+        message: '不能通过管理员接口修改自己的密码，请使用 /me/password 接口'
+      });
+    }
+
+    // 验证新密码
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
+    }
+
+    // 检查目标用户是否存在
+    const [users] = await User.findById(db, targetUserId);
+    if (users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: '用户未找到'
+      });
+    }
+
+    // 加密新密码
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // 更新密码
+    await User.updatePassword(db, targetUserId, hashedNewPassword);
+
+    res.json({
+      success: true,
+      message: '用户密码修改成功'
+    });
+  } catch (error) {
+    console.error('管理员修改用户密码错误:', error);
+    res.status(500).json({
+      success: false,
+      message: '修改用户密码失败'
     });
   }
 });

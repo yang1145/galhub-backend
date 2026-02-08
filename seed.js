@@ -3,6 +3,7 @@ const Game = require('./models/Game');
 const Tag = require('./models/Tag');
 const User = require('./models/User');
 const Review = require('./models/Review');
+const bcrypt = require('bcryptjs');
 
 async function seedDatabase() {
   try {
@@ -14,6 +15,24 @@ async function seedDatabase() {
     await Review.createTable(db);
     
     console.log('数据库表初始化完成');
+    
+    // 创建默认管理员账户
+    const adminPassword = 'admin123'; // 生产环境中应该使用更安全的密码
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(adminPassword, saltRounds);
+    
+    try {
+      const [adminResult] = await User.create(db, {
+        username: 'admin',
+        email: 'admin@galhub.com',
+        password: hashedPassword,
+        role: 'admin'
+      });
+      console.log('✓ 默认管理员账户创建成功 (用户名: admin, 密码: admin123)');
+    } catch (error) {
+      // 管理员账户可能已存在
+      console.log('✓ 管理员账户已存在或创建失败:', error.message);
+    }
     
     // 插入示例标签
     const tags = ['动作', '冒险', '角色扮演', '策略', '模拟'];
